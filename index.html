@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- Yeh meta tag ise proper mobile app jaisa scale karega -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI 8K Photo Enhancer</title>
+
+    <!-- TensorFlow.js aur Upscaler.js Library (AI Brain) -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/upscaler@latest/dist/browser/umd/upscaler.min.js"></script>
+
+    <style>
+        /* Mobile-Native UI Design (Dark Theme) */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: #000000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* App Container (Mobile Screen Size) */
+        .app-container {
+            width: 100%;
+            max-width: 420px;
+            height: 100vh;
+            background-color: #121212;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 0 20px rgba(255,255,255,0.05);
+        }
+
+        /* Header */
+        .header {
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        .header h1 {
+            color: #ffffff;
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .header span {
+            background: linear-gradient(90deg, #ff8a00, #e52e71);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: bold;
+        }
+
+        /* Image Viewer Area */
+        .viewer-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow: hidden;
+            background-image: radial-gradient(circle, #1e1e1e 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .image-wrapper {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #0a0a0a;
+            border: 2px dashed #333;
+        }
+
+        #preview {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain; /* Overlapping rokti hai */
+            display: none;
+            border-radius: 8px;
+        }
+
+        .placeholder-text {
+            color: #666;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        /* Bottom Controls (Glassmorphism effect) */
+        .controls-area {
+            padding: 25px 20px;
+            background: rgba(30, 30, 30, 0.8);
+            backdrop-filter: blur(15px);
+            border-top-left-radius: 25px;
+            border-top-right-radius: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        #status-text {
+            color: #aaaaaa;
+            font-size: 13px;
+            text-align: center;
+            margin-bottom: 5px;
+            height: 20px;
+        }
+
+        /* Buttons Styling */
+        button, .upload-btn {
+            width: 100%;
+            padding: 16px;
+            border-radius: 12px;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .upload-btn {
+            background-color: #2a2a2a;
+            color: #ffffff;
+            display: block;
+        }
+
+        .upload-btn:active {
+            background-color: #3a3a3a;
+        }
+
+        .enhance-btn {
+            background: linear-gradient(90deg, #ff8a00, #e52e71);
+            color: white;
+            opacity: 0.5;
+            pointer-events: none; /* Jab tak photo na aaye, disable rahega */
+        }
+
+        .enhance-btn.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .enhance-btn:active {
+            transform: scale(0.98);
+        }
+
+        .download-btn {
+            background-color: #ffffff;
+            color: #000000;
+            display: none;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        /* Loading Animation */
+        .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <!-- Header -->
+        <div class="header">
+            <h1>AI Photo Enhancer <span>8K</span></h1>
+        </div>
+
+        <!-- Image Viewer -->
+        <div class="viewer-area">
+            <div class="image-wrapper" id="imageWrapper">
+                <div class="placeholder-text" id="placeholderText">
+                    <br>Upload a low-quality photo
+                </div>
+                <img id="preview" alt="Image Preview">
+            </div>
+        </div>
+
+        <!-- Controls (Bottom App Bar) -->
+        <div class="controls-area">
+            <div id="status-text">Ready to enhance</div>
+            <div class="spinner" id="spinner"></div>
+
+            <!-- Upload Input -->
+            <label for="imageUpload" class="upload-btn" id="uploadLabel">
+                1. Choose Photo
+            </label>
+            <input type="file" id="imageUpload" accept="image/png, image/jpeg">
+
+            <!-- Enhance Button -->
+            <button class="enhance-btn" id="enhanceBtn" onclick="processImage()">
+                2. Auto-Enhance (AI)
+            </button>
+
+            <!-- Download Button -->
+            <button class="download-btn" id="downloadBtn" onclick="downloadImage()">
+                3. Save 8K Image
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        // DOM Elements
+        const imageUpload = document.getElementById('imageUpload');
+        const preview = document.getElementById('preview');
+        const placeholderText = document.getElementById('placeholderText');
+        const enhanceBtn = document.getElementById('enhanceBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const statusText = document.getElementById('status-text');
+        const spinner = document.getElementById('spinner');
+
+        let originalImageFile = null;
+
+        // Step 1: Upload Logic
+        imageUpload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                originalImageFile = file;
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                    placeholderText.style.display = 'none';
+                    
+                    // Activate Enhance Button
+                    enhanceBtn.classList.add('active');
+                    statusText.innerText = "Photo loaded! Tap Enhance.";
+                    downloadBtn.style.display = 'none';
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Step 2: AI Enhancement Logic (The Brain)
+        async function processImage() {
+            try {
+                // UI changes during processing
+                statusText.innerText = "AI Model is upscaling... Please wait.";
+                enhanceBtn.style.display = 'none';
+                spinner.style.display = 'block';
+
+                // Initialize Upscaler.js (This downloads the light-weight model)
+                const upscaler = new Upscaler();
+                
+                // Pass the image to the model and wait for result
+                const enhancedSrc = await upscaler.upscale(preview);
+                
+                // Show the new 8K enhanced image
+                preview.src = enhancedSrc;
+                
+                // UI changes after success
+                statusText.innerText = "Enhancement Successful!";
+                spinner.style.display = 'none';
+                enhanceBtn.style.display = 'block';
+                enhanceBtn.classList.remove('active'); // Disable it again
+                downloadBtn.style.display = 'block'; // Show download button
+
+            } catch (error) {
+                console.error("Error in AI processing:", error);
+                statusText.innerText = "Something went wrong. Try again.";
+                spinner.style.display = 'none';
+                enhanceBtn.style.display = 'block';
+            }
+        }
+
+        // Step 3: Download Logic
+        function downloadImage() {
+            const link = document.createElement('a');
+            link.download = 'AI_Enhanced_Photo.png';
+            link.href = preview.src;
+            link.click();
+            statusText.innerText = "Saved to Gallery!";
+        }
+    </script>
+
+</body>
+</html>
