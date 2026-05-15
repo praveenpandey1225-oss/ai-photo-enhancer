@@ -3,31 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Photo Enhancer</title>
+    <title>Bolbytes 8K Pro</title>
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        
         body { 
             margin: 0; padding: 0; 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
             background-color: #0d0d0d; color: #ffffff; 
         }
 
-        /* Fixed Top Header */
+        /* Top Header with Settings */
         .header { 
-            padding: 16px; text-align: center; font-size: 20px; font-weight: 700; 
-            border-bottom: 1px solid #222; background: #1a1a1a; letter-spacing: 0.5px;
+            padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #222; background: #1a1a1a;
             position: fixed; top: 0; left: 0; width: 100%; z-index: 10;
         }
+        .header-title { font-size: 18px; font-weight: 700; letter-spacing: 0.5px; }
+        .settings-btn { font-size: 20px; cursor: pointer; padding: 5px; }
 
-        /* Scrollable Content Area */
+        /* Settings Panel (Initially Hidden) */
+        #settingsPanel {
+            display: none; background: #1a1a1a; padding: 15px; border-bottom: 1px solid #333;
+            position: fixed; top: 60px; left: 0; width: 100%; z-index: 9;
+        }
+        #apiInput {
+            width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #444;
+            background: #000; color: #007aff; font-size: 14px; outline: none;
+        }
+
         .content { 
             padding: 80px 24px 140px 24px; 
             display: flex; flex-direction: column; align-items: center; gap: 20px; 
             min-height: 100vh;
         }
 
-        /* Image Upload Box */
         .upload-box { 
             width: 100%; max-width: 350px; aspect-ratio: 1; 
             border: 2px dashed #444; border-radius: 20px; 
@@ -38,14 +47,10 @@
             width: 100%; height: 100%; object-fit: contain; 
             display: none; position: absolute; z-index: 2; background: #000; 
         }
-        .upload-box input { 
-            position: absolute; width: 100%; height: 100%; 
-            opacity: 0; cursor: pointer; z-index: 3; 
-        }
+        .upload-box input { position: absolute; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 3; }
 
-        .status { font-size: 14px; color: #999; text-align: center; height: 20px; }
+        .status { font-size: 13px; color: #666; text-align: center; margin-top: 10px; }
 
-        /* Fixed Bottom Controls */
         .controls { 
             position: fixed; bottom: 0; left: 0; width: 100%; 
             background: #1a1a1a; border-top: 1px solid #222; 
@@ -58,33 +63,35 @@
             background: #007aff; color: white; border: none; 
             font-size: 17px; font-weight: 600; 
             display: flex; justify-content: center; align-items: center; gap: 10px; 
-            transition: 0.2s; 
         }
-        .btn:active { transform: scale(0.96); opacity: 0.8; }
         .btn:disabled { background: #333; color: #666; }
-        
         #downloadBtn { background: #34c759; display: none; margin-top: 12px; }
 
-        .loader { 
-            width: 22px; height: 22px; 
-            border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid white; 
-            border-radius: 50%; animation: spin 1s linear infinite; display: none; 
-        }
+        .loader { width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid white; border-radius: 50%; animation: spin 1s linear infinite; display: none; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <div class="header">AI Enhancer</div>
+    <div class="header">
+        <div class="header-title">Bolbytes 8K Pro</div>
+        <div class="settings-btn" id="toggleSettings">⚙️</div>
+    </div>
+
+    <div id="settingsPanel">
+        <label style="font-size: 12px; color: #888; margin-bottom: 8px; display: block;">Paste New Colab Link Here:</label>
+        <input type="text" id="apiInput" placeholder="https://xxxx.gradio.live">
+        <p style="font-size: 11px; color: #007aff; margin-top: 8px;">Link automatically saved on your phone.</p>
+    </div>
 
     <div class="content">
-        <div class="upload-box" id="dropArea">
-            <div style="font-size: 40px; margin-bottom: 12px;">📸</div>
-            <div style="font-weight: 500;">Tap to upload photo</div>
+        <div class="upload-box">
+            <div style="font-size: 40px;">📸</div>
+            <div style="font-weight: 500; margin-top: 10px;">Upload Photo</div>
             <input type="file" id="fileInput" accept="image/*">
-            <img id="previewImage" alt="Preview">
+            <img id="previewImage">
         </div>
-        <div class="status" id="statusText">Awaiting Image...</div>
+        <div class="status" id="statusText">Awaiting server link...</div>
     </div>
 
     <div class="controls">
@@ -92,112 +99,110 @@
             <div class="loader" id="spinner"></div>
             <span id="btnText">Auto Enhance</span>
         </button>
-        <button class="btn" id="downloadBtn">📥 Save to Gallery</button>
+        <button class="btn" id="downloadBtn">📥 Save Result</button>
     </div>
 
     <script>
+        const apiInput = document.getElementById('apiInput');
+        const settingsPanel = document.getElementById('settingsPanel');
+        const toggleSettings = document.getElementById('toggleSettings');
+        const statusText = document.getElementById('statusText');
+        
+        // 1. Phone ki memory se purana link uthana
+        let savedLink = localStorage.getItem('bolbytes_link') || "";
+        apiInput.value = savedLink;
+
+        if(savedLink) {
+            statusText.innerText = "Engine Connected. Ready to go!";
+        }
+
+        // Settings kholne/band karne ka logic
+        toggleSettings.onclick = () => {
+            settingsPanel.style.display = settingsPanel.style.display === 'block' ? 'none' : 'block';
+        };
+
+        // Link change hote hi save karna
+        apiInput.oninput = () => {
+            let link = apiInput.value.trim();
+            if(link.endsWith('/')) link = link.slice(0, -1); // Aakhri slash hatana
+            localStorage.setItem('bolbytes_link', link);
+            statusText.innerText = "New link saved successfully.";
+        };
+
         const fileInput = document.getElementById('fileInput');
         const previewImage = document.getElementById('previewImage');
         const enhanceBtn = document.getElementById('enhanceBtn');
         const downloadBtn = document.getElementById('downloadBtn');
-        const statusText = document.getElementById('statusText');
         const spinner = document.getElementById('spinner');
         const btnText = document.getElementById('btnText');
 
         let selectedFile = null;
 
-        // Image ko Base64 URL mein convert karne ka function
         function getBase64(file) {
-            return new Promise((resolve, reject) => {
+            return new Promise((resolve) => {
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
                 reader.onload = () => resolve(reader.result);
-                reader.onerror = error => reject(error);
             });
         }
 
-        // Step 1: User ne photo select ki
-        fileInput.addEventListener('change', (e) => {
+        fileInput.onchange = (e) => {
             if (e.target.files.length > 0) {
                 selectedFile = e.target.files[0];
                 previewImage.src = URL.createObjectURL(selectedFile);
                 previewImage.style.display = 'block';
                 enhanceBtn.disabled = false;
                 downloadBtn.style.display = 'none';
-                statusText.innerText = "Photo loaded. Ready to process.";
-                btnText.innerText = "Auto Enhance";
+                statusText.innerText = "Photo loaded.";
             }
-        });
+        };
 
-        // Step 2: "Auto Enhance" button dabne par
-        enhanceBtn.addEventListener('click', async () => {
-            if (!selectedFile) return;
+        enhanceBtn.onclick = async () => {
+            const currentLink = localStorage.getItem('bolbytes_link');
+            if (!currentLink || !currentLink.includes('gradio.live')) {
+                alert("Pehle Settings (⚙️) mein jaakar naya Colab link daalein!");
+                settingsPanel.style.display = 'block';
+                return;
+            }
 
             enhanceBtn.disabled = true;
             spinner.style.display = 'block';
-            btnText.innerText = "Processing...";
-            statusText.innerText = "Converting image format...";
+            btnText.innerText = "Enhancing...";
+            statusText.innerText = "Using Google GPU Power...";
 
             try {
                 const base64Img = await getBase64(selectedFile);
                 
-                statusText.innerText = "Sending to Super Computer...";
-
-                // PURE REST API CALL - Direct to your Hugging Face space
-                const response = await fetch("https://praveenpandeyy-bolbytes-image.hf.space/api/predict", {
+                // Dynamic API Call using Saved Link
+                const response = await fetch(`${currentLink}/api/predict`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ data: [base64Img] })
                 });
 
-                if (!response.ok) {
-                    throw new Error("Engine is sleeping or busy. Code: " + response.status);
-                }
-
-                statusText.innerText = "AI has completed the operation...";
                 const result = await response.json();
-
-                let outputData = result.data[0];
+                previewImage.src = result.data[0];
                 
-                if (typeof outputData === 'string') {
-                    previewImage.src = outputData; 
-                } else if (typeof outputData === 'object' && outputData.url) {
-                    previewImage.src = outputData.url; 
-                } else {
-                    throw new Error("Engine sent invalid image format");
-                }
-                
-                statusText.innerText = "Success! Photo enhanced.";
-                
+                statusText.innerText = "8K Result Ready!";
                 enhanceBtn.style.display = 'none';
                 downloadBtn.style.display = 'flex'; 
-                
+
                 downloadBtn.onclick = () => {
                     const a = document.createElement('a');
                     a.href = previewImage.src;
-                    a.download = "Bolbytes_Enhanced.png";
-                    document.body.appendChild(a);
+                    a.download = "Bolbytes_8K.png";
                     a.click();
-                    document.body.removeChild(a);
-                    
-                    enhanceBtn.style.display = 'flex';
-                    downloadBtn.style.display = 'none';
-                    enhanceBtn.disabled = false;
-                    btnText.innerText = "Enhance Another";
                 };
 
             } catch (error) {
-                console.error(error);
-                alert("Error aa gaya: " + error.message);
-                statusText.innerText = "Task Failed. Please try again.";
+                alert("Error: Link expire ho gaya ya Colab band hai.");
+                statusText.innerText = "Failed. Check Colab link.";
             } finally {
                 spinner.style.display = 'none';
-                if(enhanceBtn.style.display !== 'none') {
-                    enhanceBtn.disabled = false;
-                    btnText.innerText = "Try Again";
-                }
+                enhanceBtn.disabled = false;
+                btnText.innerText = "Auto Enhance";
             }
-        });
+        };
     </script>
 </body>
 </html>
