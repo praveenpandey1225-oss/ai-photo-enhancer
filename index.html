@@ -22,12 +22,12 @@
 
         /* Scrollable Content Area */
         .content { 
-            padding: 80px 24px 140px 24px; /* Top/Bottom padding so content doesn't hide behind fixed bars */
+            padding: 80px 24px 140px 24px; 
             display: flex; flex-direction: column; align-items: center; gap: 20px; 
             min-height: 100vh;
         }
 
-        /* Image Upload Box - Max width added so it doesn't get ridiculously huge */
+        /* Image Upload Box */
         .upload-box { 
             width: 100%; max-width: 350px; aspect-ratio: 1; 
             border: 2px dashed #444; border-radius: 20px; 
@@ -95,9 +95,7 @@
         <button class="btn" id="downloadBtn">📥 Save to Gallery</button>
     </div>
 
-    <script type="module">
-        import { client } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
-
+    <script>
         const fileInput = document.getElementById('fileInput');
         const previewImage = document.getElementById('previewImage');
         const enhanceBtn = document.getElementById('enhanceBtn');
@@ -108,6 +106,17 @@
 
         let selectedFile = null;
 
+        // Image ko Base64 URL mein convert karne ka function
+        function getBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        // Step 1: User ne photo select ki
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
                 selectedFile = e.target.files[0];
@@ -120,41 +129,57 @@
             }
         });
 
+        // Step 2: "Auto Enhance" button dabne par
         enhanceBtn.addEventListener('click', async () => {
             if (!selectedFile) return;
 
             enhanceBtn.disabled = true;
             spinner.style.display = 'block';
             btnText.innerText = "Processing...";
-            statusText.innerText = "Sending to Engine...";
+            statusText.innerText = "Converting image format...";
 
             try {
-                const app = await client("praveenpandeyy/Bolbytes-image");
+                const base64Img = await getBase64(selectedFile);
                 
-                statusText.innerText = "AI is enhancing pixels...";
-                
-                const result = await app.predict("/predict", [
-                    selectedFile, 
-                ]);
+                statusText.innerText = "Sending to Super Computer...";
 
-                const outputUrl = result.data[0].url; 
-                previewImage.src = outputUrl;
+                // PURE REST API CALL - Direct to your Hugging Face space
+                const response = await fetch("https://praveenpandeyy-bolbytes-image.hf.space/api/predict", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ data: [base64Img] })
+                });
+
+                if (!response.ok) {
+                    throw new Error("Engine is sleeping or busy. Code: " + response.status);
+                }
+
+                statusText.innerText = "AI has completed the operation...";
+                const result = await response.json();
+
+                let outputData = result.data[0];
+                
+                if (typeof outputData === 'string') {
+                    previewImage.src = outputData; 
+                } else if (typeof outputData === 'object' && outputData.url) {
+                    previewImage.src = outputData.url; 
+                } else {
+                    throw new Error("Engine sent invalid image format");
+                }
                 
                 statusText.innerText = "Success! Photo enhanced.";
                 
-                // Button swap
                 enhanceBtn.style.display = 'none';
                 downloadBtn.style.display = 'flex'; 
                 
                 downloadBtn.onclick = () => {
                     const a = document.createElement('a');
-                    a.href = outputUrl;
+                    a.href = previewImage.src;
                     a.download = "Bolbytes_Enhanced.png";
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
                     
-                    // Reset UI after download
                     enhanceBtn.style.display = 'flex';
                     downloadBtn.style.display = 'none';
                     enhanceBtn.disabled = false;
@@ -163,7 +188,8 @@
 
             } catch (error) {
                 console.error(error);
-                statusText.innerText = "Connection Failed. Engine might be sleeping.";
+                alert("Error aa gaya: " + error.message);
+                statusText.innerText = "Task Failed. Please try again.";
             } finally {
                 spinner.style.display = 'none';
                 if(enhanceBtn.style.display !== 'none') {
