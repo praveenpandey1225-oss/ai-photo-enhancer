@@ -2,11 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- Yeh meta tag ise proper mobile app jaisa scale karega -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AI 8K Photo Enhancer</title>
 
-    <!-- TensorFlow.js aur Upscaler.js Library (AI Brain) -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/upscaler@latest/dist/browser/umd/upscaler.min.js"></script>
 
@@ -23,16 +21,15 @@
             background-color: #000000;
             display: flex;
             justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
+            min-height: 100vh; /* Fixed: Ab screen stretch hogi */
+            overflow-y: auto;  /* Fixed: Scrolling on kar di gayi hai */
         }
 
         /* App Container (Mobile Screen Size) */
         .app-container {
             width: 100%;
             max-width: 420px;
-            height: 100vh;
+            min-height: 100vh; /* Fixed */
             background-color: #121212;
             display: flex;
             flex-direction: column;
@@ -69,7 +66,7 @@
             justify-content: center;
             align-items: center;
             padding: 20px;
-            overflow: hidden;
+            min-height: 350px; /* Fixed: Image ke liye jagah reserve rakhega */
             background-image: radial-gradient(circle, #1e1e1e 1px, transparent 1px);
             background-size: 20px 20px;
         }
@@ -89,7 +86,7 @@
         #preview {
             max-width: 100%;
             max-height: 100%;
-            object-fit: contain; /* Overlapping rokti hai */
+            object-fit: contain;
             display: none;
             border-radius: 8px;
         }
@@ -100,7 +97,7 @@
             text-align: center;
         }
 
-        /* Bottom Controls (Glassmorphism effect) */
+        /* Bottom Controls */
         .controls-area {
             padding: 25px 20px;
             background: rgba(30, 30, 30, 0.8);
@@ -110,6 +107,7 @@
             display: flex;
             flex-direction: column;
             gap: 15px;
+            margin-top: auto; /* Fixed: Controls hamesha bottom par rahenge */
         }
 
         #status-text {
@@ -147,7 +145,7 @@
             background: linear-gradient(90deg, #ff8a00, #e52e71);
             color: white;
             opacity: 0.5;
-            pointer-events: none; /* Jab tak photo na aaye, disable rahega */
+            pointer-events: none;
         }
 
         .enhance-btn.active {
@@ -190,12 +188,10 @@
 
     <div class="app-container">
         
-        <!-- Header -->
         <div class="header">
             <h1>AI Photo Enhancer <span>8K</span></h1>
         </div>
 
-        <!-- Image Viewer -->
         <div class="viewer-area">
             <div class="image-wrapper" id="imageWrapper">
                 <div class="placeholder-text" id="placeholderText">
@@ -205,23 +201,19 @@
             </div>
         </div>
 
-        <!-- Controls (Bottom App Bar) -->
         <div class="controls-area">
             <div id="status-text">Ready to enhance</div>
             <div class="spinner" id="spinner"></div>
 
-            <!-- Upload Input -->
             <label for="imageUpload" class="upload-btn" id="uploadLabel">
                 1. Choose Photo
             </label>
             <input type="file" id="imageUpload" accept="image/png, image/jpeg">
 
-            <!-- Enhance Button -->
             <button class="enhance-btn" id="enhanceBtn" onclick="processImage()">
                 2. Auto-Enhance (AI)
             </button>
 
-            <!-- Download Button -->
             <button class="download-btn" id="downloadBtn" onclick="downloadImage()">
                 3. Save 8K Image
             </button>
@@ -230,7 +222,6 @@
     </div>
 
     <script>
-        // DOM Elements
         const imageUpload = document.getElementById('imageUpload');
         const preview = document.getElementById('preview');
         const placeholderText = document.getElementById('placeholderText');
@@ -262,33 +253,28 @@
             }
         });
 
-        // Step 2: AI Enhancement Logic (The Brain)
+        // Step 2: AI Enhancement Logic
         async function processImage() {
             try {
-                // UI changes during processing
                 statusText.innerText = "AI Model is upscaling... Please wait.";
                 enhanceBtn.style.display = 'none';
                 spinner.style.display = 'block';
 
-                // Initialize Upscaler.js (This downloads the light-weight model)
                 const upscaler = new Upscaler();
                 
-                // Pass the image to the model and wait for result
                 const enhancedSrc = await upscaler.upscale(preview);
                 
-                // Show the new 8K enhanced image
                 preview.src = enhancedSrc;
                 
-                // UI changes after success
                 statusText.innerText = "Enhancement Successful!";
                 spinner.style.display = 'none';
                 enhanceBtn.style.display = 'block';
-                enhanceBtn.classList.remove('active'); // Disable it again
-                downloadBtn.style.display = 'block'; // Show download button
+                enhanceBtn.classList.remove('active');
+                downloadBtn.style.display = 'block';
 
             } catch (error) {
                 console.error("Error in AI processing:", error);
-                statusText.innerText = "Something went wrong. Try again.";
+                statusText.innerText = "Error: Image might be too large for mobile AI.";
                 spinner.style.display = 'none';
                 enhanceBtn.style.display = 'block';
             }
